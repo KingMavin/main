@@ -107,7 +107,15 @@ git pull
 docker compose up --build -d
 ```
 
-**7. API Gateway Schema**
+**7. Rollback**
+
+If a deployment introduces critical failures or regressions, you can orchestrate a privacy-safe rollback using the provided CLI tooling. This rolls back the active containers bounds safely without leaking credentials, media, or breaking backwards compatibility.
+
+```powershell
+.\scripts\rollback.ps1 -ManifestFile .\release\compatibility-manifest.json
+```
+
+**8. API Gateway Schema**
 
 For deployments leveraging an API Gateway, WAF, or Swagger UI, you can generate an OpenAPI 3.1 schema natively:
 
