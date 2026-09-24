@@ -91,6 +91,18 @@ function Execute-Rollback($manifest) {
   [System.Environment]::SetEnvironmentVariable("HARPOCRATES_RELEASE_TARGET", $previousRelease, "Process")
   Write-Log "Deployment boundaries reverted to $previousRelease."
   
+  if (Test-Path $composeFile) {
+    Write-Log "Bringing containers back up for $previousRelease..."
+    try {
+      $upProcess = Start-Process -FilePath "docker" -ArgumentList @("compose", "-f", $composeFile, "up", "-d") -NoNewWindow -Wait -PassThru
+      if ($upProcess.ExitCode -ne 0) {
+        Write-Warn "Failed to start containers cleanly."
+      }
+    } catch {
+      Write-Warn "Failed to execute docker compose up: $_"
+    }
+  }
+
   # Note: The contract rotation is handled separately via rollback-verifier-rotation.ps1 if required.
   Write-Log "Rollback successful."
 }
