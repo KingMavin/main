@@ -22,7 +22,7 @@ $manifestData.rollout.previous_release = "harpocrates-0.9.0"
 $manifestData | ConvertTo-Json -Depth 10 | Set-Content $validManifest
 
 Write-TestLog "1. Positive: valid rollback manifest"
-$proc = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $rollbackScript, "-ManifestFile", $validManifest) -NoNewWindow -Wait -PassThru
+$proc = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $rollbackScript, "-ManifestFile", $validManifest, "-SkipDocker") -NoNewWindow -Wait -PassThru
 if ($proc.ExitCode -ne 0) { Fail-Test "Failed on valid rollback manifest" }
 
 Write-TestLog "2. Negative: missing file"
@@ -57,6 +57,10 @@ $manifestData.rollout.previous_release = $null
 $manifestData | ConvertTo-Json -Depth 10 | Set-Content $noPrev
 $proc = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $rollbackScript, "-ManifestFile", $noPrev) -NoNewWindow -Wait -PassThru
 if ($proc.ExitCode -eq 0) { Fail-Test "Should have failed on missing previous_release" }
+
+Write-TestLog "7. Negative: failed restore exits non-zero"
+$proc = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $rollbackScript, "-ManifestFile", $validManifest) -NoNewWindow -Wait -PassThru
+if ($proc.ExitCode -eq 0) { Fail-Test "Should have failed on missing docker" }
 
 Write-TestLog "All tests passed successfully!"
 Remove-Item -Recurse -Force $tmpDir

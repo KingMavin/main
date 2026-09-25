@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory=$true)]
-  [string] $ManifestFile
+  [string] $ManifestFile,
+  [switch] $SkipDocker
 )
 
 $ErrorActionPreference = "Stop"
@@ -74,7 +75,7 @@ function Execute-Rollback($manifest) {
 
   # Suspend active deployment
   $composeFile = Join-Path $root "docker-compose.yml"
-  if (Test-Path $composeFile) {
+  if (-not $SkipDocker -and (Test-Path $composeFile)) {
     Write-Log "Stopping current containers safely..."
     try {
       $downProcess = Start-Process -FilePath "docker" -ArgumentList @("compose", "-f", $composeFile, "down") -NoNewWindow -Wait -PassThru
@@ -91,20 +92,27 @@ function Execute-Rollback($manifest) {
   [System.Environment]::SetEnvironmentVariable("HARPOCRATES_RELEASE_TARGET", $previousRelease, "Process")
   Write-Log "Deployment boundaries reverted to $previousRelease."
   
-  if (Test-Path $composeFile) {
-    Write-Log "Bringing containers back up for $previousRelease..."
+  if (-not $SkipDocker -and (Test-Path $composeFile)) {
+    Write-Log "Bringing containers back up with pinned images for $previousRelease..."
     try {
+      $env:BACKEND_IMAGE_TAG  = $previousRelease
+      $env:FRONTEND_IMAGE_TAG = $previousRelease
       $upProcess = Start-Process -FilePath "docker" -ArgumentList @("compose", "-f", $composeFile, "up", "-d") -NoNewWindow -Wait -PassThru
       if ($upProcess.ExitCode -ne 0) {
-        Write-Warn "Failed to start containers cleanly."
+        Fail-Safe 9 "Restore failed: docker compose up exited $($upProcess.ExitCode). Release $previousRelease was NOT restored."
       }
     } catch {
-      Write-Warn "Failed to execute docker compose up: $_"
+      Fail-Safe 10 "Restore failed: unable to execute docker compose up: $_"
+    } finally {
+      Remove-Item Env:\BACKEND_IMAGE_TAG -ErrorAction SilentlyContinue
+      Remove-Item Env:\FRONTEND_IMAGE_TAG -ErrorAction SilentlyContinue
     }
+  } elseif (-not $SkipDocker) {
+    Write-Warn "No docker-compose.yml found; skipping container restore step."
   }
 
   # Note: The contract rotation is handled separately via rollback-verifier-rotation.ps1 if required.
-  Write-Log "Rollback successful."
+  Write-Log "Rollback complete: $previousRelease is now active."
 }
 
 Write-Log "Starting privacy-safe deployment rollback..."
