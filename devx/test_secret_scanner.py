@@ -1,3 +1,4 @@
+# harpocrates:ignore-file
 import unittest
 import tempfile
 import os
